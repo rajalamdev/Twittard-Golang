@@ -8,8 +8,9 @@ import (
 	"html/template"
 	"log"
 	"net/http"
-	"github.com/gorilla/sessions"
+
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/gorilla/sessions"
 )
 
 // Buat session store baru dengan kunci rahasia
