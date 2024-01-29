@@ -22,7 +22,7 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="home.html">Home</a>
+                        <a class="nav-link" href="/home">Home</a>
                     </li>
                     <li class="nav-item">
                         <a href="/addTweet" class="nav-link">Add Tweet</a>
@@ -36,9 +36,9 @@
     </nav>
 
     <!-- Content -->
-    <!-- Menampilkan pesan selamat datang untuk pengguna saat ini -->
-    <p>Selamat datang, {{.CurrentUser.Username}}!</p>
     <div class="container mt-5">
+        <!-- Menampilkan pesan selamat datang untuk pengguna saat ini -->
+    <p>Selamat datang, {{.CurrentUser.Username}}!</p>
         <h1 class="mb-4">Home</h1>
         <!-- Tampilkan tweet pengguna -->
         {{range .Tweets}}
@@ -46,6 +46,7 @@
                 <div class="card-body">
                     <h5 class="card-title">{{.Username}}</h5>
                     <p class="card-text">{{.Text}}</p>
+                    <small class="text-muted">Tweeted on {{.CreatedAt}}</small>
                 </div>
             </div>
         {{end}}

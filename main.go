@@ -29,6 +29,7 @@ type Tweet struct {
 	UserID   int
 	Text     string
 	Username string // Tambahkan field ini untuk menyimpan username yang terkait dengan tweet
+	CreatedAt string
 }
 
 func main() {
@@ -165,8 +166,8 @@ func getTweets() ([]Tweet, error) {
 	db := dbConn()
 	defer db.Close()
 
-	// Query untuk menggabungkan tabel tweet dan user untuk mendapatkan tweet dengan username
-	selDB, err := db.Query("SELECT tweet.id, tweet.userid, tweet.tweet_text, users.username FROM tweet JOIN users ON tweet.userid = users.id ORDER BY tweet.id DESC")
+	// Query untuk mendapatkan tweet dan informasi pengguna yang sesuai
+    selDB, err := db.Query("SELECT tweet.id, tweet.userid, tweet.tweet_text, users.username, tweet.createdAt FROM tweet JOIN users ON tweet.userid = users.id ORDER BY tweet.id DESC")
 	if err != nil {
 		return nil, err
 	}
@@ -175,16 +176,18 @@ func getTweets() ([]Tweet, error) {
 	var tweets []Tweet
 	// Pindai hasil ke dalam struktur Tweet
 	for selDB.Next() {
-		var tweet Tweet
-		err := selDB.Scan(&tweet.ID, &tweet.UserID, &tweet.Text, &tweet.Username)
-		if err != nil {
-			return nil, err
-		}
-		tweets = append(tweets, tweet)
-	}
+        var tweet Tweet
+        err := selDB.Scan(&tweet.ID, &tweet.UserID, &tweet.Text, &tweet.Username, &tweet.CreatedAt)
+        if err != nil {
+            return nil, err
+        }
+        tweets = append(tweets, tweet)
+    }
 
 	return tweets, nil
 }
+
+
 
 // Fungsi untuk menampilkan halaman tambah tweet
 func addTweet(w http.ResponseWriter, r *http.Request) {
