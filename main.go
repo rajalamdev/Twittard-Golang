@@ -37,6 +37,9 @@ func main() {
 	http.HandleFunc("/loginProcess", loginProcess)
 	http.HandleFunc("/home", isAuthenticated(home))
 	http.HandleFunc("/logout", logout)
+	http.HandleFunc("/addTweet", isAuthenticated(addTweet))
+	http.HandleFunc("/addTweetProcess", isAuthenticated(addTweetProcess))
+
 
 	// Layani file statis
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
@@ -98,8 +101,28 @@ func loginProcess(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/home", http.StatusSeeOther)
 }
 
-// home menampilkan halaman beranda dengan tweet
+// Fungsi untuk menampilkan halaman home
 func home(w http.ResponseWriter, r *http.Request) {
+	session, err := store.Get(r, "session-name")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Mendapatkan ID pengguna dari session
+	userID, ok := session.Values["userID"].(int)
+	if !ok {
+		http.Error(w, "User not authenticated", http.StatusUnauthorized)
+		return
+	}
+
+	// Dapatkan informasi pengguna
+	currentUser, err := getUserInfo(userID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	// Dapatkan tweet dari database
 	tweets, err := getTweets()
 	if err != nil {
@@ -107,9 +130,33 @@ func home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Render template home dengan data tweet
-	renderTemplate(w, "home", map[string]interface{}{"Tweets": tweets})
+	// Gabungkan data pengguna dan tweet
+	data := map[string]interface{}{
+		"CurrentUser": currentUser,
+		"Tweets":      tweets,
+	}
+
+	// Render template
+	renderTemplate(w, "home", data)
 }
+
+// Fungsi untuk mendapatkan informasi pengguna berdasarkan ID
+func getUserInfo(userID int) (User, error) {
+	db := dbConn()
+	defer db.Close()
+
+	// Query untuk mendapatkan informasi pengguna berdasarkan ID
+	row := db.QueryRow("SELECT id, username FROM users WHERE id = ?", userID)
+
+	var user User
+	err := row.Scan(&user.ID, &user.Username)
+	if err != nil {
+		return User{}, err
+	}
+
+	return user, nil
+}
+
 
 // getTweets mengambil tweet dari database
 func getTweets() ([]Tweet, error) {
@@ -137,6 +184,60 @@ func getTweets() ([]Tweet, error) {
 
 	return tweets, nil
 }
+
+// Fungsi untuk menampilkan halaman tambah tweet
+func addTweet(w http.ResponseWriter, r *http.Request) {
+	renderTemplate(w, "add_tweet", nil)
+}
+
+// Fungsi untuk menangani proses tambah tweet
+func addTweetProcess(w http.ResponseWriter, r *http.Request) {
+	// Pastikan metodenya adalah POST
+	if r.Method != "POST" {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+
+	// Ambil nilai dari form
+	text := r.FormValue("text")
+
+	// Simpan tweet ke database
+	db := dbConn()
+	insForm, err := db.Prepare("INSERT INTO tweet(userid, tweet_text) VALUES(?, ?)")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Ganti userID dengan sesuai dengan user yang sedang login
+	userID := getCurrentUserID(r)
+	_, err = insForm.Exec(userID, text)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	defer db.Close()
+
+	// Redirect ke halaman utama setelah menambahkan tweet
+	http.Redirect(w, r, "/home", http.StatusSeeOther)
+}
+
+// Fungsi untuk mendapatkan ID pengguna yang sedang login dari session
+func getCurrentUserID(r *http.Request) int {
+	session, err := store.Get(r, "session-name")
+	if err != nil {
+		return 0
+	}
+
+	userID, ok := session.Values["userID"].(int)
+	if !ok {
+		return 0
+	}
+
+	return userID
+}
+
 
 // logout mengatasi endpoint logout dan menghapus sesi pengguna
 func logout(w http.ResponseWriter, r *http.Request) {
@@ -171,6 +272,8 @@ func renderTemplate(w http.ResponseWriter, tmplName string, data interface{}) {
 		return
 	}
 }
+
+
 
 // isAuthenticated adalah middleware untuk memeriksa otentikasi sebelum menjalankan fungsi berikutnya
 func isAuthenticated(next http.HandlerFunc) http.HandlerFunc {

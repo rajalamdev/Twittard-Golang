@@ -22,7 +22,10 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="#">Home</a>
+                        <a class="nav-link" href="home.html">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="/addTweet" class="nav-link">Add Tweet</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="/logout">Logout</a>
@@ -33,6 +36,8 @@
     </nav>
 
     <!-- Content -->
+    <!-- Menampilkan pesan selamat datang untuk pengguna saat ini -->
+    <p>Selamat datang, {{.CurrentUser.Username}}!</p>
     <div class="container mt-5">
         <h1 class="mb-4">Home</h1>
         <!-- Tampilkan tweet pengguna -->
