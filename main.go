@@ -25,10 +25,10 @@ type User struct {
 
 // Struct Tweet merepresentasikan tabel tweet dalam database
 type Tweet struct {
-	ID       int
-	UserID   int
-	Text     string
-	Username string // Tambahkan field ini untuk menyimpan username yang terkait dengan tweet
+	ID        int
+	UserID    int
+	Text      string
+	Username  string // Tambahkan field ini untuk menyimpan username yang terkait dengan tweet
 	CreatedAt string
 }
 
@@ -43,8 +43,8 @@ func main() {
 	http.HandleFunc("/addTweetProcess", isAuthenticated(addTweetProcess))
 	http.HandleFunc("/myTweet", isAuthenticated(myTweet))
 	http.HandleFunc("/deleteTweet", isAuthenticated(deleteTweet))
-
-
+	http.HandleFunc("/add_user", add_user)
+	http.HandleFunc("/addUserProcess", addUserProcess)
 
 	// Layani file statis
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
@@ -162,68 +162,67 @@ func getUserInfo(userID int) (User, error) {
 	return user, nil
 }
 
-
 // Fungsi untuk menampilkan halaman "My Tweet"
 func myTweet(w http.ResponseWriter, r *http.Request) {
-    // Mendapatkan informasi pengguna dari session
-    session, err := store.Get(r, "session-name")
-    if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
+	// Mendapatkan informasi pengguna dari session
+	session, err := store.Get(r, "session-name")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-    // Mendapatkan ID pengguna dari session
-    userID, ok := session.Values["userID"].(int)
-    if !ok {
-        http.Error(w, "User not authenticated", http.StatusUnauthorized)
-        return
-    }
+	// Mendapatkan ID pengguna dari session
+	userID, ok := session.Values["userID"].(int)
+	if !ok {
+		http.Error(w, "User not authenticated", http.StatusUnauthorized)
+		return
+	}
 
-    // Dapatkan tweet pengguna dari database
-    userTweets, err := getUserTweets(userID)
-    if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
+	// Dapatkan tweet pengguna dari database
+	userTweets, err := getUserTweets(userID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-    // Gabungkan data pengguna dan tweet
-    data := map[string]interface{}{
-        "UserTweets": userTweets,
-    }
+	// Gabungkan data pengguna dan tweet
+	data := map[string]interface{}{
+		"UserTweets": userTweets,
+	}
 
-    // Render template "my_tweet.html" dengan data
-    renderTemplate(w, "my_tweet", data)
+	// Render template "my_tweet.html" dengan data
+	renderTemplate(w, "my_tweet", data)
 }
 
 // Fungsi untuk delete tweet
 func deleteTweet(w http.ResponseWriter, r *http.Request) {
-    // Pastikan metodenya adalah POST
-    if r.Method != "POST" {
-        http.Redirect(w, r, "/", http.StatusSeeOther)
-        return
-    }
+	// Pastikan metodenya adalah POST
+	if r.Method != "POST" {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
 
-    // Ambil nilai tweetID dari form
-    tweetID := r.FormValue("tweetID")
+	// Ambil nilai tweetID dari form
+	tweetID := r.FormValue("tweetID")
 
-    // Hapus tweet dari database
-    db := dbConn()
-    delForm, err := db.Prepare("DELETE FROM tweet WHERE id = ?")
-    if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
+	// Hapus tweet dari database
+	db := dbConn()
+	delForm, err := db.Prepare("DELETE FROM tweet WHERE id = ?")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-    _, err = delForm.Exec(tweetID)
-    if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
+	_, err = delForm.Exec(tweetID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-    defer db.Close()
+	defer db.Close()
 
-    // Redirect ke halaman "My Tweet" setelah menghapus tweet
-    http.Redirect(w, r, "/myTweet", http.StatusSeeOther)
+	// Redirect ke halaman "My Tweet" setelah menghapus tweet
+	http.Redirect(w, r, "/myTweet", http.StatusSeeOther)
 }
 
 // Fungsi untuk mendapatkan tweet pengguna berdasarkan ID pengguna
@@ -253,7 +252,66 @@ func getUserTweets(userID int) ([]Tweet, error) {
 
 	return userTweets, nil
 }
+func add_user(w http.ResponseWriter, r *http.Request) {
+	renderTemplate(w, "add_user", nil)
+}
 
+func addUserProcess(w http.ResponseWriter, r *http.Request) {
+	// Ensure the method is POST
+	if r.Method != http.MethodPost {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+
+	// Retrieve values from the form
+	username := r.FormValue("username")
+	password := r.FormValue("password")
+
+	// Validate input (you can add more validation as needed)
+	if username == "" || password == "" {
+		// Handle invalid input
+		http.Error(w, "Invalid username or password", http.StatusBadRequest)
+		return
+	}
+
+	// Connect to the database
+	db := dbConn()
+	defer db.Close()
+
+	// Check if the username is already taken
+	var count int
+	err := db.QueryRow("SELECT COUNT(*) FROM users WHERE username = ?", username).Scan(&count)
+	if err != nil {
+		log.Println("Error checking username existence:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if count > 0 {
+		// Username is already taken, handle appropriately (e.g., redirect with error message)
+		log.Println("Username already taken:", username)
+		http.Redirect(w, r, "/register?error=username_taken", http.StatusSeeOther)
+		return
+	}
+
+	// Prepare the INSERT statement for adding a new user
+	insForm, err := db.Prepare("INSERT INTO users(username, password) VALUES(?, ?)")
+	if err != nil {
+		log.Println("Error preparing INSERT statement:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Execute the statement to insert a new user into the database with the plaintext password
+	_, err = insForm.Exec(username, password)
+	if err != nil {
+		log.Println("Error executing INSERT statement:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Redirect to the home page after adding the user
+	http.Redirect(w, r, "/home", http.StatusSeeOther)
+}
 
 // Fungsi untuk mendapatkan tweet dari database
 func getTweets() ([]Tweet, error) {
@@ -282,8 +340,6 @@ func getTweets() ([]Tweet, error) {
 
 	return tweets, nil
 }
-
-
 
 // Fungsi untuk menampilkan halaman tambah tweet
 func addTweet(w http.ResponseWriter, r *http.Request) {
@@ -338,7 +394,6 @@ func getCurrentUserID(r *http.Request) int {
 	return userID
 }
 
-
 // logout mengatasi endpoint logout dan menghapus sesi pengguna
 func logout(w http.ResponseWriter, r *http.Request) {
 	// Dapatkan sesi dan hapus ID pengguna
@@ -372,8 +427,6 @@ func renderTemplate(w http.ResponseWriter, tmplName string, data interface{}) {
 		return
 	}
 }
-
-
 
 // isAuthenticated adalah middleware untuk memeriksa otentikasi sebelum menjalankan fungsi berikutnya
 func isAuthenticated(next http.HandlerFunc) http.HandlerFunc {
