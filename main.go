@@ -257,7 +257,7 @@ func add_user(w http.ResponseWriter, r *http.Request) {
 }
 
 func addUserProcess(w http.ResponseWriter, r *http.Request) {
-	// Ensure the method is POST
+	// Pastikan metodenya adalah POST
 	if r.Method != http.MethodPost {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
@@ -289,7 +289,7 @@ func addUserProcess(w http.ResponseWriter, r *http.Request) {
 	if count > 0 {
 		// Username is already taken, handle appropriately (e.g., redirect with error message)
 		log.Println("Username already taken:", username)
-		http.Redirect(w, r, "/register?error=username_taken", http.StatusSeeOther)
+		http.Redirect(w, r, "/add_user?error=username_taken", http.StatusSeeOther)
 		return
 	}
 
@@ -312,6 +312,7 @@ func addUserProcess(w http.ResponseWriter, r *http.Request) {
 	// Redirect to the home page after adding the user
 	http.Redirect(w, r, "/home", http.StatusSeeOther)
 }
+
 
 // Fungsi untuk mendapatkan tweet dari database
 func getTweets() ([]Tweet, error) {
