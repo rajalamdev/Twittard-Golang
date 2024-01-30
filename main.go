@@ -41,6 +41,9 @@ func main() {
 	http.HandleFunc("/logout", logout)
 	http.HandleFunc("/addTweet", isAuthenticated(addTweet))
 	http.HandleFunc("/addTweetProcess", isAuthenticated(addTweetProcess))
+	http.HandleFunc("/myTweet", isAuthenticated(myTweet))
+	http.HandleFunc("/deleteTweet", isAuthenticated(deleteTweet))
+
 
 
 	// Layani file statis
@@ -160,14 +163,106 @@ func getUserInfo(userID int) (User, error) {
 }
 
 
-// getTweets mengambil tweet dari database
+// Fungsi untuk menampilkan halaman "My Tweet"
+func myTweet(w http.ResponseWriter, r *http.Request) {
+    // Mendapatkan informasi pengguna dari session
+    session, err := store.Get(r, "session-name")
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    // Mendapatkan ID pengguna dari session
+    userID, ok := session.Values["userID"].(int)
+    if !ok {
+        http.Error(w, "User not authenticated", http.StatusUnauthorized)
+        return
+    }
+
+    // Dapatkan tweet pengguna dari database
+    userTweets, err := getUserTweets(userID)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    // Gabungkan data pengguna dan tweet
+    data := map[string]interface{}{
+        "UserTweets": userTweets,
+    }
+
+    // Render template "my_tweet.html" dengan data
+    renderTemplate(w, "my_tweet", data)
+}
+
+// Fungsi untuk delete tweet
+func deleteTweet(w http.ResponseWriter, r *http.Request) {
+    // Pastikan metodenya adalah POST
+    if r.Method != "POST" {
+        http.Redirect(w, r, "/", http.StatusSeeOther)
+        return
+    }
+
+    // Ambil nilai tweetID dari form
+    tweetID := r.FormValue("tweetID")
+
+    // Hapus tweet dari database
+    db := dbConn()
+    delForm, err := db.Prepare("DELETE FROM tweet WHERE id = ?")
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    _, err = delForm.Exec(tweetID)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    defer db.Close()
+
+    // Redirect ke halaman "My Tweet" setelah menghapus tweet
+    http.Redirect(w, r, "/myTweet", http.StatusSeeOther)
+}
+
+// Fungsi untuk mendapatkan tweet pengguna berdasarkan ID pengguna
+func getUserTweets(userID int) ([]Tweet, error) {
+	// Hubungkan ke database
+	db := dbConn()
+	defer db.Close()
+
+	// Query untuk mendapatkan tweet pengguna berdasarkan ID pengguna
+	selDB, err := db.Query("SELECT id, tweet_text, createdAt FROM tweet WHERE userid = ? ORDER BY id DESC", userID)
+	if err != nil {
+		return nil, err
+	}
+	defer selDB.Close()
+
+	var userTweets []Tweet
+	// Pindai hasil ke dalam struktur Tweet
+	for selDB.Next() {
+		var tweet Tweet
+		err := selDB.Scan(&tweet.ID, &tweet.Text, &tweet.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+
+		userTweets = append(userTweets, tweet)
+	}
+
+	return userTweets, nil
+}
+
+
+// Fungsi untuk mendapatkan tweet dari database
 func getTweets() ([]Tweet, error) {
 	// Hubungkan ke database
 	db := dbConn()
 	defer db.Close()
 
-	// Query untuk mendapatkan tweet dan informasi pengguna yang sesuai
-    selDB, err := db.Query("SELECT tweet.id, tweet.userid, tweet.tweet_text, users.username, tweet.createdAt FROM tweet JOIN users ON tweet.userid = users.id ORDER BY tweet.id DESC")
+	// Query untuk menggabungkan tabel tweet dan user untuk mendapatkan tweet dengan username
+	selDB, err := db.Query("SELECT tweet.id, tweet.userid, tweet.tweet_text, tweet.createdAt, users.username FROM tweet JOIN users ON tweet.userid = users.id ORDER BY tweet.id DESC")
 	if err != nil {
 		return nil, err
 	}
@@ -176,13 +271,14 @@ func getTweets() ([]Tweet, error) {
 	var tweets []Tweet
 	// Pindai hasil ke dalam struktur Tweet
 	for selDB.Next() {
-        var tweet Tweet
-        err := selDB.Scan(&tweet.ID, &tweet.UserID, &tweet.Text, &tweet.Username, &tweet.CreatedAt)
-        if err != nil {
-            return nil, err
-        }
-        tweets = append(tweets, tweet)
-    }
+		var tweet Tweet
+		err := selDB.Scan(&tweet.ID, &tweet.UserID, &tweet.Text, &tweet.CreatedAt, &tweet.Username)
+		if err != nil {
+			return nil, err
+		}
+
+		tweets = append(tweets, tweet)
+	}
 
 	return tweets, nil
 }

@@ -1,11 +1,11 @@
-<!-- templates/home.html -->
+<!-- templates/my_tweet.html -->
 
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Home</title>
+    <title>My Tweet</title>
 
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -40,16 +40,18 @@
 
     <!-- Content -->
     <div class="container mt-5">
-        <!-- Menampilkan pesan selamat datang untuk pengguna saat ini -->
-    <p>Selamat datang, {{.CurrentUser.Username}}!</p>
-        <h1 class="mb-4">Home</h1>
+        <h1 class="mb-4">My Tweet</h1>
         <!-- Tampilkan tweet pengguna -->
-        {{range .Tweets}}
+        {{range .UserTweets}}
             <div class="card mb-3">
                 <div class="card-body">
-                    <h5 class="card-title">{{.Username}}</h5>
                     <p class="card-text">{{.Text}}</p>
                     <small class="text-muted">Tweeted on {{.CreatedAt}}</small>
+                    <!-- Tambahkan tombol untuk delete tweet -->
+                    <form action="/deleteTweet" method="post" class="mt-2">
+                        <input type="hidden" name="tweetID" value="{{.ID}}">
+                        <button type="submit" class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this tweet?')">Delete</button>
+                    </form>
                 </div>
             </div>
         {{end}}
